@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Password Strength Checker</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fb;
+      --ink: #18202f;
+      --muted: #657083;
+      --panel: #ffffff;
+      --border: #d9deea;
+      --weak: #d92d20;
+      --medium: #c27803;
+      --strong: #168455;
+      --accent: #1f6feb;
+      --meter-bg: #edf0f6;
+      --shadow: rgba(24, 32, 47, 0.08);
+      --suggestion-bg: #fbfcff;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #111827;
+      --ink: #f5f7fb;
+      --muted: #aab4c5;
+      --panel: #1c2433;
+      --border: #344055;
+      --accent: #4f9cff;
+      --meter-bg: #2a3447;
+      --shadow: rgba(0, 0, 0, 0.28);
+      --suggestion-bg: #161e2b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    main {
+      width: min(760px, calc(100% - 32px));
+      padding: 28px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 18px 45px var(--shadow);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.15;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input {
+      width: 100%;
+      min-width: 0;
+      height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 16px;
+      background: var(--panel);
+      color: var(--ink);
+    }
+
+    button {
+      height: 44px;
+      padding: 0 14px;
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .meter {
+      width: 100%;
+      height: 12px;
+      margin: 18px 0 12px;
+      overflow: hidden;
+      background: var(--meter-bg);
+      border-radius: 999px;
+    }
+
+    .meter span {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: var(--weak);
+      transition: width 160ms ease, background 160ms ease;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .stat {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      min-height: 76px;
+    }
+
+    .stat b {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    ul {
+      margin: 10px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    .suggestion {
+      margin-top: 18px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--suggestion-bg);
+      overflow-wrap: anywhere;
+      font-family: Consolas, Monaco, monospace;
+    }
+
+    @media (max-width: 640px) {
+      main {
+        padding: 20px;
+      }
+
+      .row,
+      .summary {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        display: grid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Password Strength Checker</h1>
+        <p>Check pattern risks, repeated characters, entropy, and a safer generated alternative.</p>
+      </div>
+      <button id="theme" type="button">Dark Mode</button>
+    </header>
+
+    <label for="password">Password</label>
+    <div class="row">
+      <input id="password" type="password" autocomplete="new-password" placeholder="Type a password">
+      <button id="toggle" type="button">Show</button>
+      <button id="generate" type="button">Generate</button>
+    </div>
+
+    <div class="meter" aria-label="Password strength meter">
+      <span id="bar"></span>
+    </div>
+
+    <div class="summary">
+      <div class="stat"><b>Strength</b><span id="strength">Waiting</span></div>
+      <div class="stat"><b>Score</b><span id="score">0/6</span></div>
+      <div class="stat"><b>Crack Time</b><span id="crackTime">-</span></div>
+    </div>
+
+    <div>
+      <strong>Detected Issues</strong>
+      <ul id="issues"><li>Start typing to analyze a password.</li></ul>
+    </div>
+
+    <div class="suggestion" id="suggestion">Suggested password will appear here.</div>
+  </main>
+
+  <script>
+    const password = document.querySelector("#password");
+    const toggle = document.querySelector("#toggle");
+    const generate = document.querySelector("#generate");
+    const bar = document.querySelector("#bar");
+    const strength = document.querySelector("#strength");
+    const score = document.querySelector("#score");
+    const crackTime = document.querySelector("#crackTime");
+    const issues = document.querySelector("#issues");
+    const suggestion = document.querySelector("#suggestion");
+    const theme = document.querySelector("#theme");
+
+    const colors = {
+      "Very Weak": "#d92d20",
+      "Weak": "#d92d20",
+      "Medium": "#c27803",
+      "Strong": "#168455",
+      "Very Strong": "#168455"
+    };
+
+    function renderIssues(result) {
+      const items = [...result.detected_patterns, ...result.feedback];
+      issues.innerHTML = "";
+
+      if (!items.length) {
+        const item = document.createElement("li");
+        item.textContent = "No obvious pattern issues found.";
+        issues.appendChild(item);
+        return;
+      }
+
+      items.forEach((message) => {
+        const item = document.createElement("li");
+        item.textContent = message;
+        issues.appendChild(item);
+      });
+    }
+
+    async function analyze() {
+      const value = password.value;
+      if (!value) {
+        strength.textContent = "Waiting";
+        score.textContent = "0/6";
+        crackTime.textContent = "-";
+        bar.style.width = "0";
+        issues.innerHTML = "<li>Start typing to analyze a password.</li>";
+        suggestion.textContent = "Suggested password will appear here.";
+        return;
+      }
+
+      const response = await fetch("/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: value })
+      });
+      const result = await response.json();
+
+      strength.textContent = result.strength;
+      score.textContent = `${result.score}/6`;
+      crackTime.textContent = result.crack_time;
+      bar.style.width = `${Math.max(result.score, 1) / 6 * 100}%`;
+      bar.style.background = colors[result.strength] || colors.Weak;
+      suggestion.textContent = `Try: ${result.suggested_password}`;
+      renderIssues(result);
+    }
+
+    password.addEventListener("input", analyze);
+
+    toggle.addEventListener("click", () => {
+      password.type = password.type === "password" ? "text" : "password";
+      toggle.textContent = password.type === "password" ? "Show" : "Hide";
+    });
+
+    generate.addEventListener("click", async () => {
+      const response = await fetch("/api/generate");
+      const result = await response.json();
+      password.value = result.password;
+      await analyze();
+    });
+
+    theme.addEventListener("click", () => {
+      const isDark = document.documentElement.dataset.theme === "dark";
+      document.documentElement.dataset.theme = isDark ? "light" : "dark";
+      theme.textContent = isDark ? "Dark Mode" : "Light Mode";
+    });
+  </script>
+</body>
+</html>
